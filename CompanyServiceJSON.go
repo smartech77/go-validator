@@ -312,9 +312,9 @@ func (cs *CompanyServiceJSON) CardPayment(
 
 // =====================================================
 //
-// MAKE A DIRRECT PAYMENT WITH A REAL CARD
+// MAKE A PAYMENT WITH A VIRTUAL CARD
 //
-// Documentation: https://uat.valitorpay.com/index.html#operation/CardPayment
+// Documentation: https://uat.valitorpay.com/index.html#operation/VirtualCardPayment
 //
 // =====================================================
 
@@ -372,6 +372,82 @@ func (cs *CompanyServiceJSON) VirtualCardPayment(
 		return
 	}
 	resp, code, err := SendJSON(requestAsJSON, "POST", cs.Settings.URL+"/Payment/VirtualCardPayment")
+	if err != nil {
+		response.SystemError = err
+		return
+	}
+	if code != 200 {
+		response.Code = strconv.Itoa(code)
+		response.IsSuccess = false
+		response.Description = getDescriptionForNone200Code(code)
+	}
+	if err := json.Unmarshal(resp, &response); err != nil {
+		response.SystemError = err
+		return
+	}
+
+	return
+}
+
+// =====================================================
+//
+// GET A DCC OFFER
+//
+// This is an offer of currency convertion.
+//
+// Documentation: https://uat.valitorpay.com/index.html#operation/DccOffer
+//
+// =====================================================
+
+// DCCOfferRequest ...
+// Documentation:  https://uat.valitorpay.com/index.html#operation/DccOffer
+type DCCOfferRequest struct {
+	CardNumber      string `json:"cardNumber"`
+	Amount          int    `json:"amount"`
+	Currency        string `json:"currency"`
+	AgreementNumber string `json:"agreementNumber"`
+	TerminalID      string `json:"terminalId"`
+}
+
+// DCCOfferResponse ...
+// Documentation:  https://uat.valitorpay.com/index.html#operation/DccOffer
+type DCCOfferResponse struct {
+	SystemError                  error
+	Currency                     string  `json:"currency"`
+	Amount                       int     `json:"amount"`
+	OfferCurrency                string  `json:"offerCurrency"`
+	OfferAmount                  int     `json:"offerAmount"`
+	DccCardholderBillingFee      int     `json:"dccCardholderBillingFee"`
+	ExchangeRate                 float64 `json:"exchangeRate"`
+	DccInformationEncryptedValue string  `json:"dccInformationEncryptedValue"`
+	ResponseTimestamp            string  `json:"responseTimestamp"`
+	IsSuccess                    bool    `json:"isSuccess"`
+	Code                         string  `json:"responseCode"`
+	Description                  string  `json:"responseDescription"`
+}
+
+// DCCOffer ...
+// Documentation: https://uat.valitorpay.com/index.html#operation/VirtualCardPayment
+func (cs *CompanyServiceJSON) DCCOffer(
+	card *Card,
+	currency string,
+	amount int,
+) (response DCCOfferResponse) {
+
+	Request := &DCCOfferRequest{
+		CardNumber:      card.Number,
+		AgreementNumber: cs.Settings.AgreementNumber,
+		TerminalID:      cs.Settings.TerminalID,
+		Amount:          amount,
+		Currency:        currency,
+	}
+	requestAsJSON, err := json.Marshal(Request)
+
+	if err != nil {
+		response.SystemError = err
+		return
+	}
+	resp, code, err := SendJSON(requestAsJSON, "POST", cs.Settings.URL+"/Dcc")
 	if err != nil {
 		response.SystemError = err
 		return
