@@ -2,9 +2,10 @@ package valitor
 
 import (
 	"encoding/json"
-	"log"
+	"math/rand"
 	"strconv"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -43,45 +44,6 @@ type SettingsJSON struct {
 
 // =====================================================
 //
-// 3D SECURE VALIDATION
-//
-// Documentation: https://uat.valitorpay.com/index.html#operation/CardVerification
-//
-// =====================================================
-
-// CardVerification ...
-// Documentation: https://uat.valitorpay.com/index.html#operation/CardVerification
-type CardVerification struct {
-	AgreementNumber         string `json:"agreementNumber"`
-	TerminalID              string `json:"terminalId"`
-	CardType                string `json:"cardType"`
-	CardNumber              string `json:"cardNumber"`
-	ExpirationMonth         int    `json:"expirationMonth"`
-	ExpirationYear          int    `json:"expirationYear"`
-	CardholderDeviceType    string `json:"cardholderDeviceType"`
-	Amount                  int    `json:"amount"`
-	Currency                string `json:"currency"`
-	AuthorizationSuccessURL string `json:"authorizationSuccessUrl"`
-	AuthorizationFailedURL  string `json:"authorizationFailedUrl"`
-	MerchantData            string `json:"merchantData"`
-}
-
-// TODO: Finish this and get some info.
-// VerifyCardUsing3DSecure ...
-// Documentation: https://uat.valitorpay.com/index.html#operation/CardVerification
-func (cs CompanyServiceJSON) VerifyCardUsing3DSecure(cardVerification *CardVerification) (card Card, err error) {
-
-	verificationAsJSON, jsonError := json.Marshal(cardVerification)
-	if jsonError != nil {
-		err = jsonError
-		return
-	}
-	log.Println(verificationAsJSON)
-	return
-}
-
-// =====================================================
-//
 // CREATING A VIRTUAL CARD
 //
 // Documentation: https://uat.valitorpay.com/index.html#operation/CreateVirtualCard
@@ -91,16 +53,16 @@ func (cs CompanyServiceJSON) VerifyCardUsing3DSecure(cardVerification *CardVerif
 // VirtualCardRequest ...
 // Documentation: https://uat.valitorpay.com/index.html#operation/CreateVirtualCard
 type VirtualCardRequest struct {
-	CardNumber                string `json:"cardNumber"`
-	ExpirationMonth           int    `json:"expirationMonth"`
-	ExpirationYear            int    `json:"expirationYear"`
-	Cvc                       string `json:"cvc"`
-	AgreementNumber           string `json:"agreementNumber"`
-	TerminalID                string `json:"terminalId"`
-	SubsequentTransactionType string `json:"subsequentTransactionType"`
-	TransactionType           string `json:"transactionType"`
-	TransactionLifecycleID    string `json:"TransactionLifecycleID,omitempty"`
-	CardVerificationData      string `json:"CardVerificationData,omitempty"`
+	CardNumber                string                `json:"cardNumber"`
+	ExpirationMonth           int                   `json:"expirationMonth"`
+	ExpirationYear            int                   `json:"expirationYear"`
+	Cvc                       string                `json:"cvc"`
+	AgreementNumber           string                `json:"agreementNumber"`
+	TerminalID                string                `json:"terminalId"`
+	SubsequentTransactionType string                `json:"subsequentTransactionType"`
+	TransactionType           string                `json:"transactionType"`
+	TransactionLifecycleID    string                `json:"TransactionLifecycleID,omitempty"`
+	CardVerificationData      *CardVerificationData `json:"CardVerificationData,omitempty"`
 }
 
 // VirtualCardResponse ...
@@ -118,7 +80,11 @@ type VirtualCardResponse struct {
 
 // CreateAVirtualCard ...
 // Documentation: https://uat.valitorpay.com/index.html#operation/CreateVirtualCard
-func (cs *CompanyServiceJSON) CreateAVirtualCard(card *Card, subsequentTransactionType, transactionType, transactionLifecycleID string) (response VirtualCardResponse) {
+func (cs *CompanyServiceJSON) CreateAVirtualCard(
+	card *Card,
+	cardVerificationData *CardVerificationData,
+	subsequentTransactionType, transactionType, transactionLifecycleID string,
+) (response VirtualCardResponse) {
 
 	Request := &VirtualCardRequest{
 		CardNumber:                card.Number,
@@ -129,13 +95,12 @@ func (cs *CompanyServiceJSON) CreateAVirtualCard(card *Card, subsequentTransacti
 		TerminalID:                cs.Settings.TerminalID,
 		SubsequentTransactionType: subsequentTransactionType,
 		TransactionType:           transactionType,
+		CardVerificationData:      cardVerificationData,
 	}
 
-	if card.VerificationDataFrom3DSecure != "" {
-		Request.CardVerificationData = card.VerificationDataFrom3DSecure
-	}
 	// if there is no TransactionLifecycleID we try to make a new one.
 	if transactionLifecycleID == "" {
+		rand.Seed(time.Now().UnixNano())
 		id, err := uuid.NewUUID()
 		if err == nil {
 			Request.TransactionLifecycleID = id.String()
@@ -178,14 +143,14 @@ func (cs *CompanyServiceJSON) CreateAVirtualCard(card *Card, subsequentTransacti
 // VirtualCardExpirationUpdateRequest ...
 // Documentation: https://uat.valitorpay.com/index.html#operation/UpdateExpirationDate
 type VirtualCardExpirationUpdateRequest struct {
-	VirtualCardNumber    string `json:"virtualCardNumber"`
-	ExpirationMonth      int    `json:"expirationMonth"`
-	ExpirationYear       int    `json:"expirationYear"`
-	Cvc                  string `json:"cvc"`
-	AgreementNumber      string `json:"agreementNumber"`
-	TerminalID           string `json:"terminalId"`
-	TransactionType      string `json:"transactionType"`
-	CardVerificationData string `json:"CardVerificationData,omitempty"`
+	VirtualCardNumber    string                `json:"virtualCardNumber"`
+	ExpirationMonth      int                   `json:"expirationMonth"`
+	ExpirationYear       int                   `json:"expirationYear"`
+	Cvc                  string                `json:"cvc"`
+	AgreementNumber      string                `json:"agreementNumber"`
+	TerminalID           string                `json:"terminalId"`
+	TransactionType      string                `json:"transactionType"`
+	CardVerificationData *CardVerificationData `json:"CardVerificationData,omitempty"`
 }
 
 // VirtualCardExpirationUpdateResponse ...
@@ -200,22 +165,23 @@ type VirtualCardExpirationUpdateResponse struct {
 }
 
 // UpdateAVirtualCardsExpirationDate ...
-// Documentation: https://uat.valitorpay.com/index.html#operation/CreateVirtualCard
-func (cs *CompanyServiceJSON) UpdateAVirtualCardsExpirationDate(card *Card, transactionType string) (response VirtualCardExpirationUpdateResponse) {
+// Documentation: https://uat.valitorpay.com/index.html#operation/UpdateExpirationDate
+func (cs *CompanyServiceJSON) UpdateAVirtualCardsExpirationDate(
+	card *Card,
+	cardVerificationData *CardVerificationData,
+	transactionType string,
+) (response VirtualCardExpirationUpdateResponse) {
 
 	Request := &VirtualCardExpirationUpdateRequest{
-		VirtualCardNumber: card.VirtualNumber,
-		ExpirationMonth:   card.ExpMonth,
-		ExpirationYear:    card.ExpYear,
-		Cvc:               card.CVC,
-		AgreementNumber:   cs.Settings.AgreementNumber,
-		TerminalID:        cs.Settings.TerminalID,
-		TransactionType:   transactionType,
+		VirtualCardNumber:    card.VirtualNumber,
+		ExpirationMonth:      card.ExpMonth,
+		ExpirationYear:       card.ExpYear,
+		Cvc:                  card.CVC,
+		AgreementNumber:      cs.Settings.AgreementNumber,
+		TerminalID:           cs.Settings.TerminalID,
+		TransactionType:      transactionType,
+		CardVerificationData: cardVerificationData,
 	}
-	if card.VerificationDataFrom3DSecure != "" {
-		Request.CardVerificationData = card.VerificationDataFrom3DSecure
-	}
-
 	requestAsJSON, err := json.Marshal(Request)
 
 	if err != nil {
@@ -239,6 +205,215 @@ func (cs *CompanyServiceJSON) UpdateAVirtualCardsExpirationDate(card *Card, tran
 
 	return
 }
+
+// =====================================================
+//
+// MAKE A DIRRECT PAYMENT WITH A REAL CARD
+//
+// Documentation: https://uat.valitorpay.com/index.html#operation/CardPayment
+//
+// =====================================================
+
+// CardPaymentRequest ...
+// Documentation: https://uat.valitorpay.com/index.html#operation/CardPayment
+type CardPaymentRequest struct {
+	Operation                 string                     `json:"operation"`
+	TransactionType           string                     `json:"transactionType"`
+	Currency                  string                     `json:"currency"`
+	Amount                    int                        `json:"amount"`
+	TerminalID                string                     `json:"terminalId"`
+	AgreementNumber           string                     `json:"agreementNumber"`
+	CardNumber                string                     `json:"cardNumber"`
+	ExpirationMonth           int                        `json:"expirationMonth"`
+	ExpirationYear            int                        `json:"expirationYear"`
+	Cvc                       string                     `json:"cvc"`
+	ReferenceNumber           string                     `json:"referenceNumber"`
+	UseAsFirstTransaction     string                     `json:"useAsFirstTransaction,omitempty"`
+	CardVerificationData      *CardVerificationData      `json:"cardVerificationData,omitempty"`
+	SubsequentTransactionData *SubsequentTransactionData `json:"subsequentTransactionData,omitempty"`
+	DCCData                   *DCCData                   `json:"dccData,omitempty"`
+}
+
+// CardPaymentResponse ...
+// Documentation: https://uat.valitorpay.com/index.html#operation/CardPayment
+type CardPaymentResponse struct {
+	SystemError               error
+	ReferenceNumber           string `json:"referenceNumber"`
+	TransactionID             string `json:"transactionID"`
+	AuthorizationCode         string `json:"authorizationCode"`
+	TransactionLifecycleID    string `json:"transactionLifecycleId"`
+	AuthorizationResponseTime string `json:"authorizationResponseTime"`
+	IsSuccess                 bool   `json:"isSuccess"`
+	Code                      string `json:"responseCode"`
+	Description               string `json:"responseDescription"`
+}
+
+// CardPayment ...
+// Documentation: https://uat.valitorpay.com/index.html#operation/CardPayment
+func (cs *CompanyServiceJSON) CardPayment(
+	card *Card,
+	operation string,
+	transactionType string,
+	currency string,
+	amount int,
+	referenceNumer string,
+	useAsFirstTransaction string,
+	subsequentTransactionData *SubsequentTransactionData,
+	cardVerificationData *CardVerificationData,
+	dccData *DCCData,
+) (response CardPaymentResponse) {
+
+	Request := &CardPaymentRequest{
+		Operation:                 operation,
+		CardNumber:                card.Number,
+		ExpirationMonth:           card.ExpMonth,
+		ExpirationYear:            card.ExpYear,
+		Cvc:                       card.CVC,
+		AgreementNumber:           cs.Settings.AgreementNumber,
+		TerminalID:                cs.Settings.TerminalID,
+		Amount:                    amount,
+		Currency:                  currency,
+		ReferenceNumber:           referenceNumer,
+		UseAsFirstTransaction:     useAsFirstTransaction,
+		TransactionType:           transactionType,
+		CardVerificationData:      cardVerificationData,
+		SubsequentTransactionData: subsequentTransactionData,
+		DCCData:                   dccData,
+	}
+	requestAsJSON, err := json.Marshal(Request)
+
+	if err != nil {
+		response.SystemError = err
+		return
+	}
+	resp, code, err := SendJSON(requestAsJSON, "POST", cs.Settings.URL+"/Payment/CardPayment")
+	if err != nil {
+		response.SystemError = err
+		return
+	}
+	// code 400 will send back a json object describing the error.
+	// it is sufficient to forward this object.
+	if code == 400 {
+		response.Code = strconv.Itoa(400)
+		response.IsSuccess = false
+		response.Description = string(resp)
+	} else if code != 200 {
+		response.Code = strconv.Itoa(code)
+		response.IsSuccess = false
+		response.Description = getDescriptionForNone200Code(code)
+	}
+	if err := json.Unmarshal(resp, &response); err != nil {
+		response.SystemError = err
+		return
+	}
+
+	return
+}
+
+// =====================================================
+//
+// MAKE A DIRRECT PAYMENT WITH A REAL CARD
+//
+// Documentation: https://uat.valitorpay.com/index.html#operation/CardPayment
+//
+// =====================================================
+
+// VirtualCardPaymentRequest ...
+// Documentation: https://uat.valitorpay.com/index.html#operation/VirtualCardPayment
+type VirtualCardPaymentRequest struct {
+	Operation         string `json:"operation"`
+	Currency          string `json:"currency"`
+	Amount            int    `json:"amount"`
+	TerminalID        string `json:"terminalId"`
+	AgreementNumber   string `json:"agreementNumber"`
+	VirtualCardNumber string `json:"virtualCardNumber"`
+	ReferenceNumber   string `json:"referenceNumber"`
+	InitiationReason  string `json:"initiationReason,omitempty"`
+}
+
+// VirtualCardPaymentResponse ...
+// Documentation: https://uat.valitorpay.com/index.html#operation/VirtualCardPayment
+type VirtualCardPaymentResponse struct {
+	SystemError               error
+	ReferenceNumber           string `json:"referenceNumber"`
+	TransactionID             string `json:"transactionID"`
+	AuthorizationCode         string `json:"authorizationCode"`
+	TransactionLifecycleID    string `json:"transactionLifecycleId"`
+	AuthorizationResponseTime string `json:"authorizationResponseTime"`
+	IsSuccess                 bool   `json:"isSuccess"`
+	Code                      string `json:"responseCode"`
+	Description               string `json:"responseDescription"`
+}
+
+// VirtualCardPayment ...
+// Documentation: https://uat.valitorpay.com/index.html#operation/VirtualCardPayment
+func (cs *CompanyServiceJSON) VirtualCardPayment(
+	card *Card,
+	initialReason string,
+	currency string,
+	amount int,
+	referenceNumer string,
+
+) (response VirtualCardPaymentResponse) {
+
+	Request := &VirtualCardPaymentRequest{
+		VirtualCardNumber: card.VirtualNumber,
+		AgreementNumber:   cs.Settings.AgreementNumber,
+		TerminalID:        cs.Settings.TerminalID,
+		Amount:            amount,
+		Currency:          currency,
+		ReferenceNumber:   referenceNumer,
+		InitiationReason:  initialReason,
+	}
+	requestAsJSON, err := json.Marshal(Request)
+
+	if err != nil {
+		response.SystemError = err
+		return
+	}
+	resp, code, err := SendJSON(requestAsJSON, "POST", cs.Settings.URL+"/Payment/VirtualCardPayment")
+	if err != nil {
+		response.SystemError = err
+		return
+	}
+	if code != 200 {
+		response.Code = strconv.Itoa(code)
+		response.IsSuccess = false
+		response.Description = getDescriptionForNone200Code(code)
+	}
+	if err := json.Unmarshal(resp, &response); err != nil {
+		response.SystemError = err
+		return
+	}
+
+	return
+}
+
+// =====================================================
+//
+// GENERAL STRUCTS USED FOR REQUESTS AND RESPONSES
+//
+// =====================================================
+type SubsequentTransactionData struct {
+	IsStoredCredential        string `json:"isStoredCredential"`
+	TransactionLifecycleID    string `json:"transactionLifecycleId,omitempty"`
+	SubsequentTransactionType string `json:"subsequentTransactionType"`
+}
+
+type DCCData struct {
+	originalTransAmount          int64   `json:"originalTransAmount"`
+	originalTransCurrency        string  `json:"originalTransCurrency"`
+	dccCardholderBillingFee      int64   `json:"dccCardholderBillingFee"`
+	dccExchangeRate              float64 `json:"dccExchangeRate"`
+	dccOfferCreationDate         string  `json:"dccOfferCreationDate"`
+	dccInformationEncryptedValue string  `json:"dccInformationEncryptedValue"`
+}
+
+// =====================================================
+//
+// HELPER FUNCTIONS
+//
+// =====================================================
 
 // For when we get a code other then 200 from valitor.
 func getDescriptionForNone200Code(code int) string {
