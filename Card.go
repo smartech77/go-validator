@@ -8,13 +8,14 @@ type VirtualCard struct {
 }
 
 type Card struct {
-	Test          bool
-	Virtual       bool
-	CVC           string
-	ExpYear       string
-	ExpMonth      string
-	Number        string
-	VirtualNumber string
+	Test                         bool
+	Virtual                      bool
+	CVC                          string
+	ExpYear                      int
+	ExpMonth                     int
+	Number                       string
+	VirtualNumber                string
+	VerificationDataFrom3DSecure string
 }
 
 func (c *Card) GetLastFour() string {

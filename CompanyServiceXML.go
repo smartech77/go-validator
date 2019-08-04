@@ -3,20 +3,25 @@ package valitor
 import (
 	"encoding/json"
 	"encoding/xml"
+	"strconv"
 	"strings"
 	"sync"
 )
 
-func NewCompanyService(
+// NewCompanyServiceUsingXML ...
+// This payment service will use the old XML endpoint from Valitor
+// Documentation: https://specs.valitor.is/CorporatePayments_ISL/
+func NewCompanyServiceUsingXML(
 	username string,
 	password string,
 	contractNumber string,
 	contractIdentidyNumber string,
 	posID string,
 	url string,
-) *CompanyService {
-	return &CompanyService{
-		Settings: &Settings{
+) *CompanyServiceXML {
+
+	return &CompanyServiceXML{
+		Settings: &SettingsXML{
 			Username:               username,
 			Password:               password,
 			ContractNumber:         contractNumber,
@@ -27,18 +32,20 @@ func NewCompanyService(
 	}
 }
 
-type CompanyService struct {
-	Settings *Settings
+type CompanyServiceXML struct {
+	Settings *SettingsXML
 	Mux      sync.RWMutex
 }
-type CompanyServiceError struct {
-	OriginalError error
-	Number        string
-	Message       string
-	LogID         string
+type SettingsXML struct {
+	Username               string
+	Password               string
+	ContractNumber         string
+	ContractIdentidyNumber string
+	PosID                  string
+	URL                    string
 }
 
-func (cs *CompanyService) GetVirtualNumber(card *Card) (response VirtualNumber) {
+func (cs *CompanyServiceXML) GetVirtualNumber(card *Card) (response VirtualNumber) {
 
 	body := `<?xml version="1.0" encoding="utf-8"?> 
 		<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -52,7 +59,7 @@ func (cs *CompanyService) GetVirtualNumber(card *Card) (response VirtualNumber) 
 		<SamningsKennitala>` + cs.Settings.ContractIdentidyNumber + `</SamningsKennitala> 
 		<PosiID>` + cs.Settings.PosID + `</PosiID>
 		<Kortnumer>` + card.Number + `</Kortnumer>
-		<Gildistimi>` + card.ExpMonth + card.ExpYear + `</Gildistimi>
+		<Gildistimi>` + strconv.Itoa(card.ExpMonth) + strconv.Itoa(card.ExpYear) + `</Gildistimi>
 		<Oryggisnumer>` + card.CVC + `</Oryggisnumer>
 		<Stillingar></Stillingar>
 		</FaSyndarkortnumer>
@@ -79,7 +86,7 @@ type VirtualNumber struct {
 	VirtualNumber string `xml:"Body>FaSyndarkortnumerResponse>FaSyndarkortnumerResult>Syndarkortnumer"`
 }
 
-func (cs *CompanyService) GetAuthorizationUsingAVirtualCard(card *Card, amount string, currency string) (response VirtualCardAuthorization) {
+func (cs *CompanyServiceXML) GetAuthorizationUsingAVirtualCard(card *Card, amount string, currency string) (response VirtualCardAuthorization) {
 
 	body := `<?xml version="1.0" encoding="utf-8"?> 
 		<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -124,7 +131,7 @@ func (vca *VirtualCardAuthorization) ReceiptToJSON() (jsonAuth []byte, err error
 	return json.Marshal(vca.Receipt)
 }
 
-func (cs *CompanyService) Refund(card *Card, amount string, currency string) (response Refund) {
+func (cs *CompanyServiceXML) Refund(card *Card, amount string, currency string) (response Refund) {
 
 	body := `<?xml version="1.0" encoding="utf-8"?> 
 		<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -167,6 +174,86 @@ type Refund struct {
 
 func (vca *Refund) ReceiptToJSON() (jsonAuth []byte, err error) {
 	return json.Marshal(vca.Receipt)
+}
+
+func (cs *CompanyServiceXML) InvalidateAuthorization(card *Card, currency string, authorizationNumber string) (response Invalidation) {
+	body := `<?xml version="1.0" encoding="utf-8"?> 
+		<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+	 	xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+		<soap:Body>
+		<FaOgildingu xmlns="http://api.valitor.is/Fyrirtaekjagreidslur/">
+		<Notandanafn>` + cs.Settings.Username + `</Notandanafn>
+		<Lykilord>` + cs.Settings.Password + `</Lykilord>
+		<Samningsnumer>` + cs.Settings.ContractNumber + `</Samningsnumer>
+		<SamningsKennitala>` + cs.Settings.ContractIdentidyNumber + `</SamningsKennitala> 
+		<PosiID>` + cs.Settings.PosID + `</PosiID>
+		<Syndarkortnumer>` + card.VirtualNumber + `</Syndarkortnumer>
+		<Gjaldmidill>` + strings.ToUpper(currency) + `</Gjaldmidill>
+		<Stillingar></Stillingar>
+		</FaOgildingu>
+		</soap:Body> </soap:Envelope>`
+
+	resp, err := send(cs.Settings.URL, "POST", body)
+	if err != nil {
+		response.SystemError = err
+		return
+	}
+	if err := xml.Unmarshal(resp, &response); err != nil {
+		response.SystemError = err
+		return
+	}
+
+	return
+}
+
+type Invalidation struct {
+	SystemError  error
+	ErrorCode    int     `xml:"Body>FaOgildinguResponse>FaOgildinguResult>Villunumer"`
+	ErrorMessage string  `xml:"Body>FaOgildinguResponse>FaOgildinguResult>Villuskilabod"`
+	ErrorLogID   string  `xml:"Body>FaOgildinguResponse>FaOgildinguResult>VilluLogID"`
+	Receipt      Receipt `xml:"Body>FaOgildinguResponse>FaOgildinguResult>Kvittun"`
+}
+
+func (vca *Invalidation) ReceiptToJSON() (jsonAuth []byte, err error) {
+	return json.Marshal(vca.Receipt)
+}
+
+func (cs *CompanyServiceXML) UpdateCardExpirationDate(card *Card) (response CardExpirationUpdate) {
+	body := `<?xml version="1.0" encoding="utf-8"?> 
+		<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+	 	xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+		<soap:Body>
+		<UppfaeraGildistima xmlns="http://api.valitor.is/Fyrirtaekjagreidslur/">
+		<Notandanafn>` + cs.Settings.Username + `</Notandanafn>
+		<Lykilord>` + cs.Settings.Password + `</Lykilord>
+		<Samningsnumer>` + cs.Settings.ContractNumber + `</Samningsnumer>
+		<SamningsKennitala>` + cs.Settings.ContractIdentidyNumber + `</SamningsKennitala> 
+		<Syndarkortnumer>` + card.VirtualNumber + `</Syndarkortnumer>
+		<NytGildistimi>` + strconv.Itoa(card.ExpMonth) + strconv.Itoa(card.ExpYear) + `</NyrGildistimi>
+		<Stillingar></Stillingar>
+		</UppfaeraGildistima>
+		</soap:Body> </soap:Envelope>`
+
+	resp, err := send(cs.Settings.URL, "POST", body)
+	if err != nil {
+		response.SystemError = err
+		return
+	}
+	if err := xml.Unmarshal(resp, &response); err != nil {
+		response.SystemError = err
+		return
+	}
+
+	return
+}
+
+type CardExpirationUpdate struct {
+	SystemError  error
+	ErrorCode    int    `xml:"Body>UppfaeraGildistimaResponse>UppfaeraGildistimaResult>Villunumer"`
+	ErrorMessage string `xml:"Body>UppfaeraGildistimaResponse>UppfaeraGildistimaResult>Villuskilabod"`
+	ErrorLogID   string `xml:"Body>UppfaeraGildistimaResponse>UppfaeraGildistimaResult>VilluLogID"`
 }
 
 // This struct is used in many other structs, be carefull when changing it!
