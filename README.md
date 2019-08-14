@@ -1,4 +1,3 @@
-<img src="gopher.png" alt="drawing" width="250"/>
 
 # go-valitor
 <a href="https://valitor.is">Valitor</a> payment service. <br>
