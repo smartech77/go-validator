@@ -1,42 +1,34 @@
-package valitor
+package xmlcore
 
 import (
 	"encoding/json"
 	"encoding/xml"
+	"errors"
 	"strconv"
 	"strings"
 	"sync"
+
+	"github.com/zkynetio/go-valitor/helpers"
 )
 
-// NewCompanyServiceUsingXML ...
-// This payment service will use the old XML endpoint from Valitor
-// Documentation: https://specs.valitor.is/CorporatePayments_ISL/
-func NewCompanyServiceUsingXML(
-	username string,
-	password string,
-	contractNumber string,
-	contractIdentidyNumber string,
-	posID string,
-	url string,
-) *CompanyServiceXML {
-
-	return &CompanyServiceXML{
-		Settings: &SettingsXML{
-			Username:               username,
-			Password:               password,
-			ContractNumber:         contractNumber,
-			ContractIdentidyNumber: contractIdentidyNumber,
-			PosID:                  posID,
-			URL:                    url,
-		},
-	}
+type Card struct {
+	CVC           string
+	ExpYear       int
+	ExpMonth      int
+	Number        string
+	VirtualNumber string
+	// 3D secure card verification data
+	// Specific to the newer JSON API
 }
 
-type CompanyServiceXML struct {
-	Settings *SettingsXML
+// CompanyService ...
+type CompanyService struct {
+	Settings *Settings
 	Mux      sync.RWMutex
 }
-type SettingsXML struct {
+
+// Settings ...
+type Settings struct {
 	Username               string
 	Password               string
 	ContractNumber         string
@@ -44,6 +36,9 @@ type SettingsXML struct {
 	PosID                  string
 	URL                    string
 }
+
+// VirtualNumber ...
+// Documentation: https://specs.valitor.is/CorporatePayments_ISL/Web_Services/#41-fasyndarkortnumer
 type VirtualNumber struct {
 	SystemError   error
 	ErrorCode     int    `xml:"Body>FaSyndarkortnumerResponse>FaSyndarkortnumerResult>Villunumer"`
@@ -52,7 +47,23 @@ type VirtualNumber struct {
 	VirtualNumber string `xml:"Body>FaSyndarkortnumerResponse>FaSyndarkortnumerResult>Syndarkortnumer"`
 }
 
-func (cs *CompanyServiceXML) GetVirtualNumber(card *Card) (response VirtualNumber) {
+// GetVirtualNumber ...
+// Documentation: https://specs.valitor.is/CorporatePayments_ISL/Web_Services/#41-fasyndarkortnumer
+func (cs *CompanyService) GetVirtualNumber(card *Card) (response VirtualNumber) {
+	if err := checkCardExpirationDate(card); err != nil {
+		response.SystemError = err
+		return
+	}
+
+	if err := checkCardCVC(card); err != nil {
+		response.SystemError = err
+		return
+	}
+
+	if err := checkCardNumber(card); err != nil {
+		response.SystemError = err
+		return
+	}
 
 	body := `<?xml version="1.0" encoding="utf-8"?> 
 		<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -72,7 +83,7 @@ func (cs *CompanyServiceXML) GetVirtualNumber(card *Card) (response VirtualNumbe
 		</FaSyndarkortnumer>
 		</soap:Body> </soap:Envelope>`
 
-	resp, err := send(cs.Settings.URL, "POST", body)
+	resp, err := helpers.Send(cs.Settings.URL, "POST", body)
 	if err != nil {
 		response.SystemError = err
 		return
@@ -85,6 +96,8 @@ func (cs *CompanyServiceXML) GetVirtualNumber(card *Card) (response VirtualNumbe
 	return
 }
 
+// VirtualCardAuthorization ...
+// Documentation: https://specs.valitor.is/CorporatePayments_ISL/Web_Services/#42-faheimild
 type VirtualCardAuthorization struct {
 	SystemError  error
 	ErrorCode    int     `xml:"Body>FaHeimildResponse>FaHeimildResult>Villunumer"`
@@ -93,7 +106,22 @@ type VirtualCardAuthorization struct {
 	Receipt      Receipt `xml:"Body>FaHeimildResponse>FaHeimildResult>Kvittun"`
 }
 
-func (cs *CompanyServiceXML) GetAuthorization(card *Card, amount string, currency string) (response VirtualCardAuthorization) {
+// GetAuthorization ...
+// Documentation: https://specs.valitor.is/CorporatePayments_ISL/Web_Services/#42-faheimild
+func (cs *CompanyService) GetAuthorization(card *Card, amount string, currency string) (response VirtualCardAuthorization) {
+	if err := checkCardForVirtualNumber(card); err != nil {
+		response.SystemError = err
+		return
+	}
+
+	if currency == "" {
+		response.SystemError = errors.New("Currency missing")
+		return
+	}
+	if amount == "" {
+		response.SystemError = errors.New("Amount missing")
+		return
+	}
 
 	body := `<?xml version="1.0" encoding="utf-8"?> 
 		<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -113,7 +141,7 @@ func (cs *CompanyServiceXML) GetAuthorization(card *Card, amount string, currenc
 		</FaHeimild>
 		</soap:Body> </soap:Envelope>`
 
-	resp, err := send(cs.Settings.URL, "POST", body)
+	resp, err := helpers.Send(cs.Settings.URL, "POST", body)
 	if err != nil {
 		response.SystemError = err
 		return
@@ -134,7 +162,25 @@ type VirtualCardAuthorizationWithoutPayment struct {
 	Receipt      Receipt `xml:"Body>FaAdeinsheimildResponse>FaAdeinsheimildResult>Kvittun"`
 }
 
-func (cs *CompanyServiceXML) GetAuthorizationWithoutPayment(card *Card, amount string, currency string) (response VirtualCardAuthorizationWithoutPayment) {
+func (cs *CompanyService) GetAuthorizationWithoutPayment(card *Card, amount string, currency string) (response VirtualCardAuthorizationWithoutPayment) {
+
+	if err := checkCardForVirtualNumber(card); err != nil {
+		response.SystemError = err
+		return
+	}
+
+	if err := checkCardCVC(card); err != nil {
+		response.SystemError = err
+		return
+	}
+	if currency == "" {
+		response.SystemError = errors.New("Currency missing")
+		return
+	}
+	if amount == "" {
+		response.SystemError = errors.New("Amount missing")
+		return
+	}
 
 	body := `<?xml version="1.0" encoding="utf-8"?> 
 		<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -155,7 +201,7 @@ func (cs *CompanyServiceXML) GetAuthorizationWithoutPayment(card *Card, amount s
 		</FaAdeinsheimild>
 		</soap:Body> </soap:Envelope>`
 
-	resp, err := send(cs.Settings.URL, "POST", body)
+	resp, err := helpers.Send(cs.Settings.URL, "POST", body)
 	if err != nil {
 		response.SystemError = err
 		return
@@ -176,7 +222,20 @@ type UseVirtualCardAuthorizationWithoutPayment struct {
 	// Receipt      Receipt `xml:"Body>NotaAdeinsheimildResponse>NotaAdeinsheimildResult>Kvittun"`
 }
 
-func (cs *CompanyServiceXML) UseAuthorization(card *Card, authorizationNumber string) (response UseVirtualCardAuthorizationWithoutPayment) {
+func (cs *CompanyService) UseAuthorization(card *Card, authorizationNumber string) (response UseVirtualCardAuthorizationWithoutPayment) {
+
+	if err := checkCardForVirtualNumber(card); err != nil {
+		response.SystemError = err
+		return
+	}
+	if err := checkCardCVC(card); err != nil {
+		response.SystemError = err
+		return
+	}
+	if authorizationNumber == "" {
+		response.SystemError = errors.New("Authorization number missing")
+		return
+	}
 
 	body := `<?xml version="1.0" encoding="utf-8"?> 
 		<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
@@ -196,7 +255,7 @@ func (cs *CompanyServiceXML) UseAuthorization(card *Card, authorizationNumber st
 		</NotaAdeinsheimild>
 		</soap:Body> </soap:Envelope>`
 
-	resp, err := send(cs.Settings.URL, "POST", body)
+	resp, err := helpers.Send(cs.Settings.URL, "POST", body)
 	if err != nil {
 		response.SystemError = err
 		return
@@ -217,8 +276,22 @@ type Refund struct {
 	Receipt      Receipt `xml:"Body>FaEndurgreittResponse>FaEndurgreittResult>Kvittun"`
 }
 
-func (cs *CompanyServiceXML) Refund(card *Card, amount string, currency string) (response Refund) {
+func (cs *CompanyService) Refund(card *Card, amount string, currency string) (response Refund) {
 
+	if err := checkCardForVirtualNumber(card); err != nil {
+		response.SystemError = err
+		return
+	}
+
+	if currency == "" {
+		response.SystemError = errors.New("Currency missing")
+		return
+	}
+
+	if amount == "" {
+		response.SystemError = errors.New("Amount missing")
+		return
+	}
 	body := `<?xml version="1.0" encoding="utf-8"?> 
 		<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 		xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
@@ -237,7 +310,7 @@ func (cs *CompanyServiceXML) Refund(card *Card, amount string, currency string) 
 		</FaEndurgreitt>
 		</soap:Body> </soap:Envelope>`
 
-	resp, err := send(cs.Settings.URL, "POST", body)
+	resp, err := helpers.Send(cs.Settings.URL, "POST", body)
 	if err != nil {
 		response.SystemError = err
 		return
@@ -258,7 +331,21 @@ type Invalidation struct {
 	Receipt      Receipt `xml:"Body>FaOgildinguResponse>FaOgildinguResult>Kvittun"`
 }
 
-func (cs *CompanyServiceXML) InvalidateAuthorization(card *Card, currency string, authorizationNumber string) (response Invalidation) {
+func (cs *CompanyService) InvalidateAuthorization(card *Card, currency string, authorizationNumber string) (response Invalidation) {
+
+	if err := checkCardForVirtualNumber(card); err != nil {
+		response.SystemError = err
+		return
+	}
+	if authorizationNumber == "" {
+		response.SystemError = errors.New("Authorization number missing")
+		return
+	}
+	if currency == "" {
+		response.SystemError = errors.New("Currency missing")
+		return
+	}
+
 	body := `<?xml version="1.0" encoding="utf-8"?> 
 		<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 		xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
@@ -277,7 +364,7 @@ func (cs *CompanyServiceXML) InvalidateAuthorization(card *Card, currency string
 		</FaOgildingu>
 		</soap:Body> </soap:Envelope>`
 
-	resp, err := send(cs.Settings.URL, "POST", body)
+	resp, err := helpers.Send(cs.Settings.URL, "POST", body)
 	if err != nil {
 		response.SystemError = err
 		return
@@ -297,7 +384,15 @@ type CardExpirationUpdate struct {
 	ErrorLogID   string `xml:"Body>UppfaeraGildistimaResponse>UppfaeraGildistimaResult>VilluLogID"`
 }
 
-func (cs *CompanyServiceXML) UpdateCardExpirationDate(card *Card) (response CardExpirationUpdate) {
+func (cs *CompanyService) UpdateCardExpirationDate(card *Card) (response CardExpirationUpdate) {
+	if err := checkCardForVirtualNumber(card); err != nil {
+		response.SystemError = err
+		return
+	}
+	if err := checkCardExpirationDate(card); err != nil {
+		response.SystemError = err
+		return
+	}
 	body := `<?xml version="1.0" encoding="utf-8"?> 
 		<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
 		xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
@@ -314,7 +409,48 @@ func (cs *CompanyServiceXML) UpdateCardExpirationDate(card *Card) (response Card
 		</UppfaeraGildistima>
 		</soap:Body> </soap:Envelope>`
 
-	resp, err := send(cs.Settings.URL, "POST", body)
+	resp, err := helpers.Send(cs.Settings.URL, "POST", body)
+	if err != nil {
+		response.SystemError = err
+		return
+	}
+	if err := xml.Unmarshal(resp, &response); err != nil {
+		response.SystemError = err
+		return
+	}
+
+	return
+}
+
+type LastFourDigitsResponse struct {
+	SystemError  error
+	ErrorCode    int    `xml:"Body>FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeriResponse>FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeriResult>Villunumer"`
+	ErrorMessage string `xml:"Body>FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeriResponse>FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeriResult>Villuskilabod"`
+	ErrorLogID   string `xml:"Body>FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeriResponse>FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeriResult>VilluLogID"`
+	Kortnumer    string `xml:"Body>FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeriResponse>FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeriResult>Kortnumer"`
+}
+
+func (cs *CompanyService) GetLastFourDigitsFromTheRealCard(card *Card) (response LastFourDigitsResponse) {
+	if err := checkCardForVirtualNumber(card); err != nil {
+		response.SystemError = err
+		return
+	}
+	body := `<?xml version="1.0" encoding="utf-8"?> 
+		<soap:Envelope xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+		xmlns:xsd="http://www.w3.org/2001/XMLSchema" 
+	 	xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+		<soap:Body>
+		<FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeri xmlns="http://api.valitor.is/Fyrirtaekjagreidslur/">
+		<Notandanafn>` + cs.Settings.Username + `</Notandanafn>
+		<Lykilord>` + cs.Settings.Password + `</Lykilord>
+		<Samningsnumer>` + cs.Settings.ContractNumber + `</Samningsnumer>
+		<SamningsKennitala>` + cs.Settings.ContractIdentidyNumber + `</SamningsKennitala> 
+		<Syndarkortnumer>` + card.VirtualNumber + `</Syndarkortnumer>
+		<Stillingar></Stillingar>
+		</FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeri>
+		</soap:Body> </soap:Envelope>`
+
+	resp, err := helpers.Send(cs.Settings.URL, "POST", body)
 	if err != nil {
 		response.SystemError = err
 		return
@@ -364,4 +500,35 @@ type Receipt struct {
 
 func (r *Receipt) ReceiptToJSON() (jsonAuth []byte, err error) {
 	return json.Marshal(r)
+}
+
+func checkCardCVC(card *Card) error {
+	if card.CVC == "" {
+		return errors.New("CVC missing")
+	}
+	return nil
+}
+func checkCardNumber(card *Card) error {
+	if card.Number == "" {
+		return errors.New("Card Number missing")
+	}
+
+	return nil
+}
+func checkCardExpirationDate(card *Card) error {
+	if card.ExpYear == 0 && card.ExpMonth == 0 {
+		return errors.New("Expiration Month and Year missing")
+	} else if card.ExpMonth == 0 {
+		return errors.New("Expiration Month missing")
+	} else if card.ExpYear == 0 {
+		return errors.New("Expiration Year missing")
+	}
+	return nil
+}
+func checkCardForVirtualNumber(card *Card) error {
+	if card.VirtualNumber == "" {
+		return errors.New("Virtual Number missing")
+	}
+
+	return nil
 }

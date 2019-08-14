@@ -1,4 +1,4 @@
-package valitor
+package jsoncore
 
 import (
 	"encoding/json"
@@ -8,47 +8,33 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/zkynetio/go-valitor/helpers"
 )
 
-// NewCompanyServiceUsingJSON ...
-// This payment service will use the new JSON api from Valitor
-// Documentation: https://uat.valitorpay.com
-func NewCompanyServiceUsingJSON(
-	agreementNumber string,
-	terminalID string,
-	url string,
-) *CompanyServiceJSON {
-
-	if url == "" {
-		// Setting the default url as the test url
-		url = "https://uat.valitorpay.com"
-	}
-	return &CompanyServiceJSON{
-		Settings: &SettingsJSON{
-			AgreementNumber: agreementNumber,
-			TerminalID:      terminalID,
-			URL:             url,
-		},
-	}
+type Card struct {
+	CVC           string
+	ExpYear       int
+	ExpMonth      int
+	Number        string
+	VirtualNumber string
+	// 3D secure card verification data
+	// Specific to the newer JSON API
+	CardVerificationData CardVerificationData
 }
 
-type CompanyServiceJSON struct {
-	Settings *SettingsJSON
+func (c *Card) GetLastFour() string {
+	return c.Number[len(c.Number)-5:]
+}
+
+type CompanyService struct {
+	Settings *Settings
 	Mux      sync.RWMutex
 }
-type SettingsJSON struct {
+type Settings struct {
 	AgreementNumber string
 	TerminalID      string
 	URL             string
 }
-
-// =====================================================
-//
-// CREATING A VIRTUAL CARD
-//
-// Documentation: https://uat.valitorpay.com/index.html#operation/CreateVirtualCard
-//
-// =====================================================
 
 // VirtualCardRequest ...
 // Documentation: https://uat.valitorpay.com/index.html#operation/CreateVirtualCard
@@ -80,7 +66,7 @@ type VirtualCardResponse struct {
 
 // CreateAVirtualCard ...
 // Documentation: https://uat.valitorpay.com/index.html#operation/CreateVirtualCard
-func (cs *CompanyServiceJSON) CreateAVirtualCard(
+func (cs *CompanyService) CreateAVirtualCard(
 	card *Card,
 	cardVerificationData *CardVerificationData,
 	subsequentTransactionType, transactionType, transactionLifecycleID string,
@@ -114,7 +100,8 @@ func (cs *CompanyServiceJSON) CreateAVirtualCard(
 		response.SystemError = err
 		return
 	}
-	resp, code, err := SendJSON(requestAsJSON, "POST", cs.Settings.URL+"/VirtualCard/CreateVirtualCard")
+
+	resp, code, err := helpers.SendJSON(requestAsJSON, "POST", cs.Settings.URL+"/VirtualCard/CreateVirtualCard")
 	if err != nil {
 		response.SystemError = err
 		return
@@ -131,14 +118,6 @@ func (cs *CompanyServiceJSON) CreateAVirtualCard(
 
 	return
 }
-
-// =====================================================
-//
-// UPDATING THE EXPIRATION DATE OF A VIRTUAL CARD
-//
-// Documentation: https://uat.valitorpay.com/index.html#operation/UpdateExpirationDate
-//
-// =====================================================
 
 // VirtualCardExpirationUpdateRequest ...
 // Documentation: https://uat.valitorpay.com/index.html#operation/UpdateExpirationDate
@@ -166,7 +145,7 @@ type VirtualCardExpirationUpdateResponse struct {
 
 // UpdateAVirtualCardsExpirationDate ...
 // Documentation: https://uat.valitorpay.com/index.html#operation/UpdateExpirationDate
-func (cs *CompanyServiceJSON) UpdateAVirtualCardsExpirationDate(
+func (cs *CompanyService) UpdateAVirtualCardsExpirationDate(
 	card *Card,
 	cardVerificationData *CardVerificationData,
 	transactionType string,
@@ -188,7 +167,7 @@ func (cs *CompanyServiceJSON) UpdateAVirtualCardsExpirationDate(
 		response.SystemError = err
 		return
 	}
-	resp, code, err := SendJSON(requestAsJSON, "POST", cs.Settings.URL+"/VirtualCard/UpdateExpirationDate")
+	resp, code, err := helpers.SendJSON(requestAsJSON, "POST", cs.Settings.URL+"/VirtualCard/UpdateExpirationDate")
 	if err != nil {
 		response.SystemError = err
 		return
@@ -205,14 +184,6 @@ func (cs *CompanyServiceJSON) UpdateAVirtualCardsExpirationDate(
 
 	return
 }
-
-// =====================================================
-//
-// MAKE A DIRRECT PAYMENT WITH A REAL CARD
-//
-// Documentation: https://uat.valitorpay.com/index.html#operation/CardPayment
-//
-// =====================================================
 
 // CardPaymentRequest ...
 // Documentation: https://uat.valitorpay.com/index.html#operation/CardPayment
@@ -250,7 +221,7 @@ type CardPaymentResponse struct {
 
 // CardPayment ...
 // Documentation: https://uat.valitorpay.com/index.html#operation/CardPayment
-func (cs *CompanyServiceJSON) CardPayment(
+func (cs *CompanyService) CardPayment(
 	card *Card,
 	operation string,
 	transactionType string,
@@ -286,7 +257,7 @@ func (cs *CompanyServiceJSON) CardPayment(
 		response.SystemError = err
 		return
 	}
-	resp, code, err := SendJSON(requestAsJSON, "POST", cs.Settings.URL+"/Payment/CardPayment")
+	resp, code, err := helpers.SendJSON(requestAsJSON, "POST", cs.Settings.URL+"/Payment/CardPayment")
 	if err != nil {
 		response.SystemError = err
 		return
@@ -309,14 +280,6 @@ func (cs *CompanyServiceJSON) CardPayment(
 
 	return
 }
-
-// =====================================================
-//
-// MAKE A PAYMENT WITH A VIRTUAL CARD
-//
-// Documentation: https://uat.valitorpay.com/index.html#operation/VirtualCardPayment
-//
-// =====================================================
 
 // VirtualCardPaymentRequest ...
 // Documentation: https://uat.valitorpay.com/index.html#operation/VirtualCardPayment
@@ -347,7 +310,7 @@ type VirtualCardPaymentResponse struct {
 
 // VirtualCardPayment ...
 // Documentation: https://uat.valitorpay.com/index.html#operation/VirtualCardPayment
-func (cs *CompanyServiceJSON) VirtualCardPayment(
+func (cs *CompanyService) VirtualCardPayment(
 	card *Card,
 	initialReason string,
 	currency string,
@@ -371,7 +334,7 @@ func (cs *CompanyServiceJSON) VirtualCardPayment(
 		response.SystemError = err
 		return
 	}
-	resp, code, err := SendJSON(requestAsJSON, "POST", cs.Settings.URL+"/Payment/VirtualCardPayment")
+	resp, code, err := helpers.SendJSON(requestAsJSON, "POST", cs.Settings.URL+"/Payment/VirtualCardPayment")
 	if err != nil {
 		response.SystemError = err
 		return
@@ -388,16 +351,6 @@ func (cs *CompanyServiceJSON) VirtualCardPayment(
 
 	return
 }
-
-// =====================================================
-//
-// GET A DCC OFFER
-//
-// This is an offer of currency convertion.
-//
-// Documentation: https://uat.valitorpay.com/index.html#operation/DccOffer
-//
-// =====================================================
 
 // DCCOfferRequest ...
 // Documentation:  https://uat.valitorpay.com/index.html#operation/DccOffer
@@ -428,7 +381,7 @@ type DCCOfferResponse struct {
 
 // DCCOffer ...
 // Documentation: https://uat.valitorpay.com/index.html#operation/VirtualCardPayment
-func (cs *CompanyServiceJSON) DCCOffer(
+func (cs *CompanyService) DCCOffer(
 	card *Card,
 	currency string,
 	amount int,
@@ -447,7 +400,7 @@ func (cs *CompanyServiceJSON) DCCOffer(
 		response.SystemError = err
 		return
 	}
-	resp, code, err := SendJSON(requestAsJSON, "POST", cs.Settings.URL+"/Dcc")
+	resp, code, err := helpers.SendJSON(requestAsJSON, "POST", cs.Settings.URL+"/Dcc")
 	if err != nil {
 		response.SystemError = err
 		return

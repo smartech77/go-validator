@@ -1,4 +1,4 @@
-package valitor
+package helpers
 
 import (
 	"bytes"
@@ -9,7 +9,7 @@ import (
 
 var DebugMode bool
 
-func SendRequest(envelope string, method string, url string) ([]byte, error) {
+func sendRequest(envelope string, method string, url string) ([]byte, error) {
 
 	client := &http.Client{}
 	// build a new request, but not doing the POST yet
@@ -47,8 +47,8 @@ func SendRequest(envelope string, method string, url string) ([]byte, error) {
 	return bodyBytes, nil
 }
 
-func send(url, method, body string) (results []byte, err error) {
-	results, requestError := SendRequest(body, "POST", url)
+func Send(url, method, body string) (results []byte, err error) {
+	results, requestError := sendRequest(body, "POST", url)
 	if requestError != nil {
 		return results, requestError
 	}

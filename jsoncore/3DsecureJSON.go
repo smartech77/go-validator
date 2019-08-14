@@ -1,4 +1,4 @@
-package valitor
+package jsoncore
 
 import (
 	"encoding/json"
@@ -39,7 +39,7 @@ type CardVerification struct {
 // TODO: Finish this and get some info.
 // VerifyCardUsing3DSecure ...
 // Documentation: https://uat.valitorpay.com/index.html#operation/CardVerification
-func (cs CompanyServiceJSON) VerifyCardUsing3DSecure(cardVerification *CardVerification) (card Card, err error) {
+func (cs CompanyService) VerifyCardUsing3DSecure(cardVerification *CardVerification) (card Card, err error) {
 
 	verificationAsJSON, jsonError := json.Marshal(cardVerification)
 	if jsonError != nil {
