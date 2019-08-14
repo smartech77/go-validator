@@ -7,12 +7,16 @@ import (
 	"net/http"
 )
 
+var DebugMode bool
+
 func SendRequest(envelope string, method string, url string) ([]byte, error) {
 
 	client := &http.Client{}
 	// build a new request, but not doing the POST yet
-	log.Println("SENDING TO:", method, url)
-	log.Println(envelope)
+	if DebugMode {
+		log.Println(method, " -> ", url, " -> Data:", envelope)
+	}
+
 	req, err := http.NewRequest(method, url, bytes.NewBuffer([]byte(envelope)))
 	if err != nil {
 		return nil, err
@@ -32,11 +36,13 @@ func SendRequest(envelope string, method string, url string) ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
+	if DebugMode {
 
-	log.Println("body!")
-	log.Println(resp.StatusCode)
-	bodyString := string(bodyBytes)
-	log.Println(bodyString)
+		log.Println(method, " -> ", url, " -> Response Code: ", resp.StatusCode)
+		bodyString := string(bodyBytes)
+		log.Println(method, " -> ", url, " -> Body: ", bodyString)
+	}
+
 	//print raw response body for debugging purposes
 	return bodyBytes, nil
 }

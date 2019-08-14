@@ -1,10 +1,5 @@
 package valitor
 
-import (
-	"log"
-	"testing"
-)
-
 // 5304259906522887 2211 749
 // 5304259909334470 2211 813
 // 5304259902386667 2211 376|
@@ -24,15 +19,15 @@ var TCSJSON = NewCompanyServiceUsingJSON(
 	"",
 )
 
-func Test_CompanyServiceJSON_CreateAVirtualCard(t *testing.T) {
+// func Test_CompanyServiceJSON_CreateAVirtualCard(t *testing.T) {
 
-	virtualCardResponse := TCSJSON.CreateAVirtualCard(TestCardJSON, "CardholderInitiatedCredentialOnFile", "ECommerceWithCvc", "")
-	log.Println("Test output!")
-	log.Println(virtualCardResponse)
-}
-func Test_CompanyServiceJSON_UpdateAVirtualCardsExpirationDate(t *testing.T) {
+// 	virtualCardResponse := TCSJSON.CreateAVirtualCard(TestCardJSON, "CardholderInitiatedCredentialOnFile", "ECommerceWithCvc", "")
+// 	log.Println("Test output!")
+// 	log.Println(virtualCardResponse)
+// }
+// func Test_CompanyServiceJSON_UpdateAVirtualCardsExpirationDate(t *testing.T) {
 
-	VirtualCardExpirationUpdateResponse := TCSJSON.UpdateAVirtualCardsExpirationDate(TestCardJSON, "ECommerceWithCvc")
-	log.Println("Test output!")
-	log.Println(VirtualCardExpirationUpdateResponse)
-}
+// 	VirtualCardExpirationUpdateResponse := TCSJSON.UpdateAVirtualCardsExpirationDate(TestCardJSON, "ECommerceWithCvc")
+// 	log.Println("Test output!")
+// 	log.Println(VirtualCardExpirationUpdateResponse)
+// }
