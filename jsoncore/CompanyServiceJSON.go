@@ -66,7 +66,7 @@ type VirtualCardResponse struct {
 
 // CreateAVirtualCard ...
 // Documentation: https://uat.valitorpay.com/index.html#operation/CreateVirtualCard
-func (cs *CompanyService) CreateAVirtualCard(
+func (cs *CompanyService) CreateVirtualCard(
 	card *Card,
 	cardVerificationData *CardVerificationData,
 	subsequentTransactionType, transactionType, transactionLifecycleID string,
@@ -145,7 +145,7 @@ type VirtualCardExpirationUpdateResponse struct {
 
 // UpdateAVirtualCardsExpirationDate ...
 // Documentation: https://uat.valitorpay.com/index.html#operation/UpdateExpirationDate
-func (cs *CompanyService) UpdateAVirtualCardsExpirationDate(
+func (cs *CompanyService) UpdateExpirationDate(
 	card *Card,
 	cardVerificationData *CardVerificationData,
 	transactionType string,
@@ -381,7 +381,7 @@ type DCCOfferResponse struct {
 
 // DCCOffer ...
 // Documentation: https://uat.valitorpay.com/index.html#operation/VirtualCardPayment
-func (cs *CompanyService) DCCOffer(
+func (cs *CompanyService) Dcc(
 	card *Card,
 	currency string,
 	amount int,

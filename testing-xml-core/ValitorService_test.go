@@ -25,8 +25,8 @@ var CS = valitor.NewValitorService(
 	"225",
 	"https://api.processing.uat.valitor.com/Fyrirtaekjagreidslur/Fyrirtaekjagreidslur.asmx",
 )
-var VCAuth xmlcore.VirtualCardAuthorization
-var VCAuthWithoutPayment xmlcore.VirtualCardAuthorizationWithoutPayment
+var VCAuth xmlcore.FaHeimild
+var VCAuthWithoutPayment xmlcore.FaAdeinsHeimild
 var hasBeenInitialized bool
 
 func InitTestThings() {
@@ -35,9 +35,9 @@ func InitTestThings() {
 		hasBeenInitialized = true
 	}
 }
-func Test_CompanyService_GetVirtualNumber(t *testing.T) {
+func Test_CompanyService_FaSyndarkortnumer(t *testing.T) {
 	InitTestThings()
-	xmlResponse := CS.GetVirtualNumber(TestCard)
+	xmlResponse := CS.FaSyndarkortnumer(TestCard)
 	if xmlResponse.ErrorCode != 0 || xmlResponse.SystemError != nil {
 		t.Log("Could not get a virtual number for card: "+TestCard.Number, " .. not running more tests ...")
 		t.Log("System Error:", xmlResponse.SystemError)
@@ -58,7 +58,7 @@ func Test_CompanyService_GetVirtualNumber(t *testing.T) {
 	// Break card number
 	FaultyCard.Number = ""
 	ExpectedErrorMessage := "Card Number missing"
-	errorResponse := CS.GetVirtualNumber(FaultyCard)
+	errorResponse := CS.FaSyndarkortnumer(FaultyCard)
 	if errorResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", errorResponse.SystemError)
 		t.Fatal()
@@ -70,7 +70,7 @@ func Test_CompanyService_GetVirtualNumber(t *testing.T) {
 	// break expiration
 	FaultyCard.ExpYear = 0
 	ExpectedErrorMessage = "Expiration Year missing"
-	errorResponse = CS.GetVirtualNumber(FaultyCard)
+	errorResponse = CS.FaSyndarkortnumer(FaultyCard)
 	if errorResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", errorResponse.SystemError)
 		t.Fatal()
@@ -81,7 +81,7 @@ func Test_CompanyService_GetVirtualNumber(t *testing.T) {
 
 	FaultyCard.ExpMonth = 0
 	ExpectedErrorMessage = "Expiration Month missing"
-	errorResponse = CS.GetVirtualNumber(FaultyCard)
+	errorResponse = CS.FaSyndarkortnumer(FaultyCard)
 	if errorResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", errorResponse.SystemError)
 		t.Fatal()
@@ -90,7 +90,7 @@ func Test_CompanyService_GetVirtualNumber(t *testing.T) {
 
 	FaultyCard.ExpYear = 0
 	ExpectedErrorMessage = "Expiration Month and Year missing"
-	errorResponse = CS.GetVirtualNumber(FaultyCard)
+	errorResponse = CS.FaSyndarkortnumer(FaultyCard)
 	if errorResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", errorResponse.SystemError)
 		t.Fatal()
@@ -103,7 +103,7 @@ func Test_CompanyService_GetVirtualNumber(t *testing.T) {
 	// break CVC
 	FaultyCard.CVC = ""
 	ExpectedErrorMessage = "CVC missing"
-	errorResponse = CS.GetVirtualNumber(FaultyCard)
+	errorResponse = CS.FaSyndarkortnumer(FaultyCard)
 	if errorResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", errorResponse.SystemError)
 		t.Fatal()
@@ -113,20 +113,20 @@ func Test_CompanyService_GetVirtualNumber(t *testing.T) {
 	// proceed to verify the rest of our test methods.
 	TestCard.VirtualNumber = xmlResponse.VirtualNumber
 	t.Log("Got virtual number :", xmlResponse.VirtualNumber, "running more test...")
-	t.Run("VirtualCard=GetAuthorization", CompanyService_GetAuthorization)
-	t.Run("VirtualCard=Refund", CompanyService_Refund)
-	t.Run("VirtualCard=GetAuthorization", CompanyService_GetAuthorization)
-	t.Run("VirtualCard=InvalidateAuthorization", CompanyService_InvalidateAuthorization)
-	t.Run("VirtualCard=UpdateExpiration", CompanyService_UpdateCardExpirationDate)
-	t.Run("VirtualCard=GetAuthorizationWithoutPayment", CompanyService_GetAuthorizationWithoutPayment)
-	t.Run("VirtualCard=UseAuthorization", CompanyService_UseAuthorization)
-	t.Run("VirtualCard=GetLastFourDigitsFromTheRealCard", CompanyService_GetLastFourDigitsFromTheRealCard)
+	t.Run("VirtualCard=GetAuthorization", CompanyService_FaHeimild)
+	t.Run("VirtualCard=FaEndurgreitt", CompanyService_FaEndurgreitt)
+	t.Run("VirtualCard=GetAuthorization", CompanyService_FaHeimild)
+	t.Run("VirtualCard=FaOgildingu", CompanyService_FaOgildingu)
+	t.Run("VirtualCard=UpdateExpiration", CompanyService_UppfaeraGildistima)
+	t.Run("VirtualCard=FaAdeinsHeimild", CompanyService_FaAdeinsHeimild)
+	t.Run("VirtualCard=NotaAdeinsheimild", CompanyService_NotaAdeinsheimild)
+	t.Run("VirtualCard=FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeri", CompanyService_FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeri)
 
 }
 
-func CompanyService_GetAuthorization(t *testing.T) {
+func CompanyService_FaHeimild(t *testing.T) {
 	InitTestThings()
-	xmlResponse := CS.GetAuthorization(TestCard, "100", "ISK")
+	xmlResponse := CS.FaHeimild(TestCard, "100", "ISK")
 	if xmlResponse.ErrorCode != 0 || xmlResponse.SystemError != nil {
 		t.Log("Could not get Authorization: " + TestCard.VirtualNumber)
 		t.Log("System Error:", xmlResponse.SystemError)
@@ -135,7 +135,7 @@ func CompanyService_GetAuthorization(t *testing.T) {
 		return
 	}
 	VCAuth = xmlResponse
-	jsonReceipt, err := xmlResponse.Receipt.ReceiptToJSON()
+	jsonReceipt, err := xmlResponse.Receipt.ToJSON()
 	if err != nil {
 		panic(err)
 	}
@@ -152,7 +152,7 @@ func CompanyService_GetAuthorization(t *testing.T) {
 	}
 	FaultyCard.VirtualNumber = ""
 	ExpectedErrorMessage := "Virtual Number missing"
-	newResponse := CS.GetAuthorization(FaultyCard, "100", "ISK")
+	newResponse := CS.FaHeimild(FaultyCard, "100", "ISK")
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -161,7 +161,7 @@ func CompanyService_GetAuthorization(t *testing.T) {
 
 	FaultyCard.VirtualNumber = TestCard.VirtualNumber
 	ExpectedErrorMessage = "Currency missing"
-	newResponse = CS.GetAuthorization(FaultyCard, "100", "")
+	newResponse = CS.FaHeimild(FaultyCard, "100", "")
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -169,7 +169,7 @@ func CompanyService_GetAuthorization(t *testing.T) {
 	}
 
 	ExpectedErrorMessage = "Amount missing"
-	newResponse = CS.GetAuthorization(FaultyCard, "", "ISK")
+	newResponse = CS.FaHeimild(FaultyCard, "", "ISK")
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -178,22 +178,22 @@ func CompanyService_GetAuthorization(t *testing.T) {
 
 }
 
-func CompanyService_Refund(t *testing.T) {
+func CompanyService_FaEndurgreitt(t *testing.T) {
 	InitTestThings()
-	xmlResponse := CS.Refund(TestCard, "100", "ISK")
+	xmlResponse := CS.FaEndurgreitt(TestCard, "100", "ISK")
 	if xmlResponse.ErrorCode != 0 || xmlResponse.SystemError != nil {
-		t.Log("Could not refund: "+TestCard.VirtualNumber, " error:", xmlResponse)
+		t.Log("Could not FaEndurgreitt: "+TestCard.VirtualNumber, " error:", xmlResponse)
 		t.Log("System Error:", xmlResponse.SystemError)
 		t.Log("Full Error:", xmlResponse)
 		t.Fatal()
 		return
 	}
-	jsonReceipt, err := xmlResponse.Receipt.ReceiptToJSON()
+	jsonReceipt, err := xmlResponse.Receipt.ToJSON()
 	if err != nil {
 
 		panic(err)
 	}
-	log.Println("Got a refund receipt:", string(jsonReceipt))
+	log.Println("Got a FaEndurgreitt receipt:", string(jsonReceipt))
 
 	FaultyCard := &xmlcore.Card{
 		Number:   "5304259906522887",
@@ -205,7 +205,7 @@ func CompanyService_Refund(t *testing.T) {
 	}
 	FaultyCard.VirtualNumber = ""
 	ExpectedErrorMessage := "Virtual Number missing"
-	newResponse := CS.Refund(FaultyCard, "100", "ISK")
+	newResponse := CS.FaEndurgreitt(FaultyCard, "100", "ISK")
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -214,7 +214,7 @@ func CompanyService_Refund(t *testing.T) {
 
 	FaultyCard.VirtualNumber = TestCard.VirtualNumber
 	ExpectedErrorMessage = "Currency missing"
-	newResponse = CS.Refund(FaultyCard, "100", "")
+	newResponse = CS.FaEndurgreitt(FaultyCard, "100", "")
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -222,7 +222,7 @@ func CompanyService_Refund(t *testing.T) {
 	}
 
 	ExpectedErrorMessage = "Amount missing"
-	newResponse = CS.Refund(FaultyCard, "", "ISK")
+	newResponse = CS.FaEndurgreitt(FaultyCard, "", "ISK")
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -230,9 +230,9 @@ func CompanyService_Refund(t *testing.T) {
 	}
 }
 
-func CompanyService_InvalidateAuthorization(t *testing.T) {
+func CompanyService_FaOgildingu(t *testing.T) {
 	InitTestThings()
-	xmlResponse := CS.InvalidateAuthorization(TestCard, "ISK", VCAuth.Receipt.TransactionID)
+	xmlResponse := CS.FaOgildingu(TestCard, "ISK", VCAuth.Receipt.TransactionID)
 	if xmlResponse.ErrorCode != 0 || xmlResponse.SystemError != nil {
 		t.Log("Could not invalidate authorization number: " + VCAuth.Receipt.TransactionID)
 		t.Log("System Error:", xmlResponse.SystemError)
@@ -240,7 +240,7 @@ func CompanyService_InvalidateAuthorization(t *testing.T) {
 		t.Fatal()
 		return
 	}
-	jsonReceipt, err := xmlResponse.Receipt.ReceiptToJSON()
+	jsonReceipt, err := xmlResponse.Receipt.ToJSON()
 	if err != nil {
 		panic(err)
 	}
@@ -256,7 +256,7 @@ func CompanyService_InvalidateAuthorization(t *testing.T) {
 	}
 	FaultyCard.VirtualNumber = ""
 	ExpectedErrorMessage := "Virtual Number missing"
-	newResponse := CS.InvalidateAuthorization(FaultyCard, "100", "ISK")
+	newResponse := CS.FaOgildingu(FaultyCard, "100", "ISK")
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -265,7 +265,7 @@ func CompanyService_InvalidateAuthorization(t *testing.T) {
 
 	FaultyCard.VirtualNumber = TestCard.VirtualNumber
 	ExpectedErrorMessage = "Currency missing"
-	newResponse = CS.InvalidateAuthorization(FaultyCard, "", "randomnumber")
+	newResponse = CS.FaOgildingu(FaultyCard, "", "randomnumber")
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -273,7 +273,7 @@ func CompanyService_InvalidateAuthorization(t *testing.T) {
 	}
 
 	ExpectedErrorMessage = "Authorization number missing"
-	newResponse = CS.InvalidateAuthorization(FaultyCard, "ISK", "")
+	newResponse = CS.FaOgildingu(FaultyCard, "ISK", "")
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -281,11 +281,11 @@ func CompanyService_InvalidateAuthorization(t *testing.T) {
 	}
 }
 
-func CompanyService_UpdateCardExpirationDate(t *testing.T) {
+func CompanyService_UppfaeraGildistima(t *testing.T) {
 	InitTestThings()
 	TestCard.ExpMonth = 12
 	TestCard.ExpYear = 30
-	xmlResponse := CS.UpdateCardExpirationDate(TestCard)
+	xmlResponse := CS.UppfaeraGildistima(TestCard)
 	if xmlResponse.ErrorCode != 0 || xmlResponse.SystemError != nil {
 		t.Log("Could not update card expiration date")
 		t.Log("System Error:", xmlResponse.SystemError)
@@ -305,7 +305,7 @@ func CompanyService_UpdateCardExpirationDate(t *testing.T) {
 	}
 	FaultyCard.VirtualNumber = ""
 	ExpectedErrorMessage := "Virtual Number missing"
-	newResponse := CS.UpdateCardExpirationDate(FaultyCard)
+	newResponse := CS.UppfaeraGildistima(FaultyCard)
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -316,7 +316,7 @@ func CompanyService_UpdateCardExpirationDate(t *testing.T) {
 	// break expiration
 	FaultyCard.ExpYear = 0
 	ExpectedErrorMessage = "Expiration Year missing"
-	newResponse = CS.UpdateCardExpirationDate(FaultyCard)
+	newResponse = CS.UppfaeraGildistima(FaultyCard)
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -327,7 +327,7 @@ func CompanyService_UpdateCardExpirationDate(t *testing.T) {
 
 	FaultyCard.ExpMonth = 0
 	ExpectedErrorMessage = "Expiration Month missing"
-	newResponse = CS.UpdateCardExpirationDate(FaultyCard)
+	newResponse = CS.UppfaeraGildistima(FaultyCard)
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -336,7 +336,7 @@ func CompanyService_UpdateCardExpirationDate(t *testing.T) {
 
 	FaultyCard.ExpYear = 0
 	ExpectedErrorMessage = "Expiration Month and Year missing"
-	newResponse = CS.UpdateCardExpirationDate(FaultyCard)
+	newResponse = CS.UppfaeraGildistima(FaultyCard)
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -345,9 +345,9 @@ func CompanyService_UpdateCardExpirationDate(t *testing.T) {
 
 }
 
-func CompanyService_GetAuthorizationWithoutPayment(t *testing.T) {
+func CompanyService_FaAdeinsHeimild(t *testing.T) {
 	InitTestThings()
-	xmlResponse := CS.GetAuthorizationWithoutPayment(TestCard, "100", "ISK")
+	xmlResponse := CS.FaAdeinsHeimild(TestCard, "100", "ISK")
 	if xmlResponse.ErrorCode != 0 || xmlResponse.SystemError != nil {
 		t.Log("Could not get Authorization (without payment): " + TestCard.VirtualNumber)
 		t.Log("System Error:", xmlResponse.SystemError)
@@ -356,7 +356,7 @@ func CompanyService_GetAuthorizationWithoutPayment(t *testing.T) {
 		return
 	}
 	VCAuthWithoutPayment = xmlResponse
-	jsonReceipt, err := xmlResponse.Receipt.ReceiptToJSON()
+	jsonReceipt, err := xmlResponse.Receipt.ToJSON()
 	if err != nil {
 		panic(err)
 	}
@@ -373,7 +373,7 @@ func CompanyService_GetAuthorizationWithoutPayment(t *testing.T) {
 	}
 	FaultyCard.VirtualNumber = ""
 	ExpectedErrorMessage := "Virtual Number missing"
-	newResponse := CS.GetAuthorizationWithoutPayment(FaultyCard, "100", "ISK")
+	newResponse := CS.FaAdeinsHeimild(FaultyCard, "100", "ISK")
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -382,7 +382,7 @@ func CompanyService_GetAuthorizationWithoutPayment(t *testing.T) {
 
 	FaultyCard.VirtualNumber = TestCard.VirtualNumber
 	ExpectedErrorMessage = "Currency missing"
-	newResponse = CS.GetAuthorizationWithoutPayment(FaultyCard, "100", "")
+	newResponse = CS.FaAdeinsHeimild(FaultyCard, "100", "")
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -390,7 +390,7 @@ func CompanyService_GetAuthorizationWithoutPayment(t *testing.T) {
 	}
 
 	ExpectedErrorMessage = "Amount missing"
-	newResponse = CS.GetAuthorizationWithoutPayment(FaultyCard, "", "ISK")
+	newResponse = CS.FaAdeinsHeimild(FaultyCard, "", "ISK")
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -399,7 +399,7 @@ func CompanyService_GetAuthorizationWithoutPayment(t *testing.T) {
 
 	FaultyCard.CVC = ""
 	ExpectedErrorMessage = "CVC missing"
-	newResponse = CS.GetAuthorizationWithoutPayment(FaultyCard, "100", "ISK")
+	newResponse = CS.FaAdeinsHeimild(FaultyCard, "100", "ISK")
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -407,9 +407,9 @@ func CompanyService_GetAuthorizationWithoutPayment(t *testing.T) {
 	}
 }
 
-func CompanyService_UseAuthorization(t *testing.T) {
+func CompanyService_NotaAdeinsheimild(t *testing.T) {
 	InitTestThings()
-	xmlResponse := CS.UseAuthorization(TestCard, VCAuthWithoutPayment.Receipt.TransactionID)
+	xmlResponse := CS.NotaAdeinsheimild(TestCard, VCAuthWithoutPayment.Receipt.TransactionID)
 	if xmlResponse.ErrorCode != 0 || xmlResponse.SystemError != nil {
 		t.Log("Could not use Authorization: " + TestCard.VirtualNumber)
 		t.Log("System Error:", xmlResponse.SystemError)
@@ -430,7 +430,7 @@ func CompanyService_UseAuthorization(t *testing.T) {
 	}
 	FaultyCard.VirtualNumber = ""
 	ExpectedErrorMessage := "Virtual Number missing"
-	newResponse := CS.UseAuthorization(FaultyCard, "randomnumber")
+	newResponse := CS.NotaAdeinsheimild(FaultyCard, "randomnumber")
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -439,7 +439,7 @@ func CompanyService_UseAuthorization(t *testing.T) {
 
 	FaultyCard.VirtualNumber = TestCard.VirtualNumber
 	ExpectedErrorMessage = "Authorization number missing"
-	newResponse = CS.UseAuthorization(FaultyCard, "")
+	newResponse = CS.NotaAdeinsheimild(FaultyCard, "")
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -448,7 +448,7 @@ func CompanyService_UseAuthorization(t *testing.T) {
 
 	FaultyCard.CVC = ""
 	ExpectedErrorMessage = "CVC missing"
-	newResponse = CS.UseAuthorization(FaultyCard, "randomnumber")
+	newResponse = CS.NotaAdeinsheimild(FaultyCard, "randomnumber")
 	if newResponse.SystemError.Error() != ExpectedErrorMessage {
 		t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 		t.Fatal()
@@ -457,9 +457,9 @@ func CompanyService_UseAuthorization(t *testing.T) {
 
 }
 
-func CompanyService_GetLastFourDigitsFromTheRealCard(t *testing.T) {
+func CompanyService_FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeri(t *testing.T) {
 	InitTestThings()
-	xmlResponse := CS.GetLastFourDigitsFromTheRealCard(TestCard)
+	xmlResponse := CS.FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeri(TestCard)
 	if xmlResponse.ErrorCode != 0 || xmlResponse.SystemError != nil {
 		t.Log("Could not get last four digits: " + TestCard.VirtualNumber)
 		t.Log("System Error:", xmlResponse.SystemError)
@@ -486,7 +486,7 @@ func CompanyService_GetLastFourDigitsFromTheRealCard(t *testing.T) {
 		}
 		FaultyCard.VirtualNumber = ""
 		ExpectedErrorMessage := "Virtual Number missing"
-		newResponse := CS.UseAuthorization(FaultyCard, "randomnumber")
+		newResponse := CS.NotaAdeinsheimild(FaultyCard, "randomnumber")
 		if newResponse.SystemError.Error() != ExpectedErrorMessage {
 			t.Log("Expected:", ExpectedErrorMessage, " got ", newResponse.SystemError)
 			t.Fatal()

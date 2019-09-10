@@ -39,7 +39,7 @@ type Settings struct {
 
 // VirtualNumber ...
 // Documentation: https://specs.valitor.is/CorporatePayments_ISL/Web_Services/#41-fasyndarkortnumer
-type VirtualNumber struct {
+type FaSyndarkortnumer struct {
 	SystemError   error
 	ErrorCode     int    `xml:"Body>FaSyndarkortnumerResponse>FaSyndarkortnumerResult>Villunumer"`
 	ErrorMessage  string `xml:"Body>FaSyndarkortnumerResponse>FaSyndarkortnumerResult>Villuskilabod"`
@@ -49,7 +49,7 @@ type VirtualNumber struct {
 
 // GetVirtualNumber ...
 // Documentation: https://specs.valitor.is/CorporatePayments_ISL/Web_Services/#41-fasyndarkortnumer
-func (cs *CompanyService) GetVirtualNumber(card *Card) (response VirtualNumber) {
+func (cs *CompanyService) FaSyndarkortnumer(card *Card) (response FaSyndarkortnumer) {
 	if err := checkCardExpirationDate(card); err != nil {
 		response.SystemError = err
 		return
@@ -98,7 +98,7 @@ func (cs *CompanyService) GetVirtualNumber(card *Card) (response VirtualNumber) 
 
 // VirtualCardAuthorization ...
 // Documentation: https://specs.valitor.is/CorporatePayments_ISL/Web_Services/#42-faheimild
-type VirtualCardAuthorization struct {
+type FaHeimild struct {
 	SystemError  error
 	ErrorCode    int     `xml:"Body>FaHeimildResponse>FaHeimildResult>Villunumer"`
 	ErrorMessage string  `xml:"Body>FaHeimildResponse>FaHeimildResult>Villuskilabod"`
@@ -108,7 +108,7 @@ type VirtualCardAuthorization struct {
 
 // GetAuthorization ...
 // Documentation: https://specs.valitor.is/CorporatePayments_ISL/Web_Services/#42-faheimild
-func (cs *CompanyService) GetAuthorization(card *Card, amount string, currency string) (response VirtualCardAuthorization) {
+func (cs *CompanyService) FaHeimild(card *Card, amount string, currency string) (response FaHeimild) {
 	if err := checkCardForVirtualNumber(card); err != nil {
 		response.SystemError = err
 		return
@@ -154,7 +154,7 @@ func (cs *CompanyService) GetAuthorization(card *Card, amount string, currency s
 	return
 }
 
-type VirtualCardAuthorizationWithoutPayment struct {
+type FaAdeinsHeimild struct {
 	SystemError  error
 	ErrorCode    int     `xml:"Body>FaAdeinsheimildResponse>FaAdeinsheimildResult>Villunumer"`
 	ErrorMessage string  `xml:"Body>FaAdeinsheimildResponse>FaAdeinsheimildResult>Villuskilabod"`
@@ -162,7 +162,7 @@ type VirtualCardAuthorizationWithoutPayment struct {
 	Receipt      Receipt `xml:"Body>FaAdeinsheimildResponse>FaAdeinsheimildResult>Kvittun"`
 }
 
-func (cs *CompanyService) GetAuthorizationWithoutPayment(card *Card, amount string, currency string) (response VirtualCardAuthorizationWithoutPayment) {
+func (cs *CompanyService) FaAdeinsHeimild(card *Card, amount string, currency string) (response FaAdeinsHeimild) {
 
 	if err := checkCardForVirtualNumber(card); err != nil {
 		response.SystemError = err
@@ -214,7 +214,7 @@ func (cs *CompanyService) GetAuthorizationWithoutPayment(card *Card, amount stri
 	return
 }
 
-type UseVirtualCardAuthorizationWithoutPayment struct {
+type NotaAdeinsheimild struct {
 	SystemError  error
 	ErrorCode    int    `xml:"Body>NotaAdeinsheimildResponse>NotaAdeinsheimildResult>Villunumer"`
 	ErrorMessage string `xml:"Body>NotaAdeinsheimildResponse>NotaAdeinsheimildResult>Villuskilabod"`
@@ -222,7 +222,7 @@ type UseVirtualCardAuthorizationWithoutPayment struct {
 	// Receipt      Receipt `xml:"Body>NotaAdeinsheimildResponse>NotaAdeinsheimildResult>Kvittun"`
 }
 
-func (cs *CompanyService) UseAuthorization(card *Card, authorizationNumber string) (response UseVirtualCardAuthorizationWithoutPayment) {
+func (cs *CompanyService) NotaAdeinsheimild(card *Card, authorizationNumber string) (response NotaAdeinsheimild) {
 
 	if err := checkCardForVirtualNumber(card); err != nil {
 		response.SystemError = err
@@ -268,7 +268,7 @@ func (cs *CompanyService) UseAuthorization(card *Card, authorizationNumber strin
 	return
 }
 
-type Refund struct {
+type FaEndurgreitt struct {
 	SystemError  error
 	ErrorCode    int     `xml:"Body>FaEndurgreittResponse>FaEndurgreittResult>Villunumer"`
 	ErrorMessage string  `xml:"Body>FaEndurgreittResponse>FaEndurgreittResult>Villuskilabod"`
@@ -276,7 +276,7 @@ type Refund struct {
 	Receipt      Receipt `xml:"Body>FaEndurgreittResponse>FaEndurgreittResult>Kvittun"`
 }
 
-func (cs *CompanyService) Refund(card *Card, amount string, currency string) (response Refund) {
+func (cs *CompanyService) FaEndurgreitt(card *Card, amount string, currency string) (response FaEndurgreitt) {
 
 	if err := checkCardForVirtualNumber(card); err != nil {
 		response.SystemError = err
@@ -323,7 +323,7 @@ func (cs *CompanyService) Refund(card *Card, amount string, currency string) (re
 	return
 }
 
-type Invalidation struct {
+type FaOgildingu struct {
 	SystemError  error
 	ErrorCode    int     `xml:"Body>FaOgildinguResponse>FaOgildinguResult>Villunumer"`
 	ErrorMessage string  `xml:"Body>FaOgildinguResponse>FaOgildinguResult>Villuskilabod"`
@@ -331,7 +331,7 @@ type Invalidation struct {
 	Receipt      Receipt `xml:"Body>FaOgildinguResponse>FaOgildinguResult>Kvittun"`
 }
 
-func (cs *CompanyService) InvalidateAuthorization(card *Card, currency string, authorizationNumber string) (response Invalidation) {
+func (cs *CompanyService) FaOgildingu(card *Card, currency string, authorizationNumber string) (response FaOgildingu) {
 
 	if err := checkCardForVirtualNumber(card); err != nil {
 		response.SystemError = err
@@ -377,14 +377,14 @@ func (cs *CompanyService) InvalidateAuthorization(card *Card, currency string, a
 	return
 }
 
-type CardExpirationUpdate struct {
+type UppfaeraGildistima struct {
 	SystemError  error
 	ErrorCode    int    `xml:"Body>UppfaeraGildistimaResponse>UppfaeraGildistimaResult>Villunumer"`
 	ErrorMessage string `xml:"Body>UppfaeraGildistimaResponse>UppfaeraGildistimaResult>Villuskilabod"`
 	ErrorLogID   string `xml:"Body>UppfaeraGildistimaResponse>UppfaeraGildistimaResult>VilluLogID"`
 }
 
-func (cs *CompanyService) UpdateCardExpirationDate(card *Card) (response CardExpirationUpdate) {
+func (cs *CompanyService) UppfaeraGildistima(card *Card) (response UppfaeraGildistima) {
 	if err := checkCardForVirtualNumber(card); err != nil {
 		response.SystemError = err
 		return
@@ -422,7 +422,7 @@ func (cs *CompanyService) UpdateCardExpirationDate(card *Card) (response CardExp
 	return
 }
 
-type LastFourDigitsResponse struct {
+type FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeri struct {
 	SystemError  error
 	ErrorCode    int    `xml:"Body>FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeriResponse>FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeriResult>Villunumer"`
 	ErrorMessage string `xml:"Body>FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeriResponse>FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeriResult>Villuskilabod"`
@@ -430,7 +430,7 @@ type LastFourDigitsResponse struct {
 	Kortnumer    string `xml:"Body>FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeriResponse>FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeriResult>Kortnumer"`
 }
 
-func (cs *CompanyService) GetLastFourDigitsFromTheRealCard(card *Card) (response LastFourDigitsResponse) {
+func (cs *CompanyService) FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeri(card *Card) (response FaSidustuFjoraIKortnumeriUtFraSyndarkortnumeri) {
 	if err := checkCardForVirtualNumber(card); err != nil {
 		response.SystemError = err
 		return
@@ -498,7 +498,7 @@ type Receipt struct {
 	TerminalID            string `json:",omitempty" xml:"TerminalID,omitempty"`
 }
 
-func (r *Receipt) ReceiptToJSON() (jsonAuth []byte, err error) {
+func (r *Receipt) ToJSON() (jsonAuth []byte, err error) {
 	return json.Marshal(r)
 }
 
