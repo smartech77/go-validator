@@ -4,9 +4,9 @@ import (
 	"log"
 	"testing"
 
-	valitor "github.com/zkynetio/go-valitor"
-	helpers "github.com/zkynetio/go-valitor/helpers"
-	xmlcore "github.com/zkynetio/go-valitor/xmlcore"
+	valitor "github.com/opensourcez/go-valitor"
+	helpers "github.com/opensourcez/go-valitor/helpers"
+	xmlcore "github.com/opensourcez/go-valitor/xmlcore"
 )
 
 var TestCard = &xmlcore.Card{

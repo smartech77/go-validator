@@ -1,8 +1,8 @@
 package valitor
 
 import (
-	jsoncore "github.com/zkynetio/go-valitor/jsoncore"
-	xmlcore "github.com/zkynetio/go-valitor/xmlcore"
+	jsoncore "github.com/opensourcez/go-valitor/jsoncore"
+	xmlcore "github.com/opensourcez/go-valitor/xmlcore"
 )
 
 // NewValitorPayService ...

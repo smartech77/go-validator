@@ -1,8 +1,8 @@
 package test
 
 import (
-	valitor "github.com/zkynetio/go-valitor"
-	jsoncore "github.com/zkynetio/go-valitor/jsoncore"
+	valitor "github.com/opensourcez/go-valitor"
+	jsoncore "github.com/opensourcez/go-valitor/jsoncore"
 )
 
 var TestCardJSON = &jsoncore.Card{

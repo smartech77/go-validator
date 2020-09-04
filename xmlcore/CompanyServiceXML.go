@@ -8,7 +8,7 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/zkynetio/go-valitor/helpers"
+	"github.com/opensourcez/go-valitor/helpers"
 )
 
 type Card struct {

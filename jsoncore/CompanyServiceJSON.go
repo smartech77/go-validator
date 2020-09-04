@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/zkynetio/go-valitor/helpers"
+	"github.com/opensourcez/go-valitor/helpers"
 )
 
 type Card struct {
