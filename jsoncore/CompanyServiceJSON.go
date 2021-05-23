@@ -2,6 +2,7 @@ package jsoncore
 
 import (
 	"encoding/json"
+	"log"
 	"math/rand"
 	"strconv"
 	"sync"
@@ -49,6 +50,7 @@ type VirtualCardRequest struct {
 	TransactionType           string                `json:"transactionType"`
 	TransactionLifecycleID    string                `json:"TransactionLifecycleID,omitempty"`
 	CardVerificationData      *CardVerificationData `json:"CardVerificationData,omitempty"`
+	Currency                  string                `json:"currency,omitempty"`
 }
 
 // VirtualCardResponse ...
@@ -73,15 +75,16 @@ func (cs *CompanyService) CreateVirtualCard(
 ) (response VirtualCardResponse) {
 
 	Request := &VirtualCardRequest{
-		CardNumber:                card.Number,
-		ExpirationMonth:           card.ExpMonth,
-		ExpirationYear:            card.ExpYear,
-		Cvc:                       card.CVC,
-		AgreementNumber:           cs.Settings.AgreementNumber,
-		TerminalID:                cs.Settings.TerminalID,
+		CardNumber:      card.Number,
+		ExpirationMonth: card.ExpMonth,
+		ExpirationYear:  card.ExpYear,
+		Cvc:             card.CVC,
+		// AgreementNumber:           cs.Settings.AgreementNumber,
+		// TerminalID:                cs.Settings.TerminalID,
 		SubsequentTransactionType: subsequentTransactionType,
 		TransactionType:           transactionType,
 		CardVerificationData:      cardVerificationData,
+		Currency:                  "ISK",
 	}
 
 	// if there is no TransactionLifecycleID we try to make a new one.
@@ -111,6 +114,64 @@ func (cs *CompanyService) CreateVirtualCard(
 		response.IsSuccess = false
 		response.Description = getDescriptionForNone200Code(code)
 	}
+	log.Println(resp)
+	if err := json.Unmarshal(resp, &response); err != nil {
+		response.SystemError = err
+		return
+	}
+
+	return
+}
+
+// CreateAVirtualCard ...
+// Documentation: https://uat.valitorpay.com/index.html#operation/CardPaymentWithVerification
+func (cs *CompanyService) CardPaymentWithVerification(
+	card *Card,
+	cardVerificationData *CardVerificationData,
+	subsequentTransactionType, transactionType, transactionLifecycleID string,
+) (response VirtualCardResponse) {
+
+	Request := &VirtualCardRequest{
+		CardNumber:      card.Number,
+		ExpirationMonth: card.ExpMonth,
+		ExpirationYear:  card.ExpYear,
+		Cvc:             card.CVC,
+		// AgreementNumber:           cs.Settings.AgreementNumber,
+		// TerminalID:                cs.Settings.TerminalID,
+		SubsequentTransactionType: subsequentTransactionType,
+		TransactionType:           transactionType,
+		CardVerificationData:      cardVerificationData,
+		Currency:                  "ISK",
+	}
+
+	// if there is no TransactionLifecycleID we try to make a new one.
+	if transactionLifecycleID == "" {
+		rand.Seed(time.Now().UnixNano())
+		id, err := uuid.NewUUID()
+		if err == nil {
+			Request.TransactionLifecycleID = id.String()
+			response.TransactionLifecycleID = id.String()
+		}
+	}
+
+	requestAsJSON, err := json.Marshal(Request)
+
+	if err != nil {
+		response.SystemError = err
+		return
+	}
+
+	resp, code, err := helpers.SendJSON(requestAsJSON, "POST", cs.Settings.URL+"/VirtualCard/CreateVirtualCard")
+	if err != nil {
+		response.SystemError = err
+		return
+	}
+	if code != 200 {
+		response.Code = strconv.Itoa(code)
+		response.IsSuccess = false
+		response.Description = getDescriptionForNone200Code(code)
+	}
+	log.Println(resp)
 	if err := json.Unmarshal(resp, &response); err != nil {
 		response.SystemError = err
 		return

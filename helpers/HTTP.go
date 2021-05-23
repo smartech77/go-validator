@@ -69,7 +69,9 @@ func SendJSON(data []byte, method string, url string) ([]byte, int, error) {
 
 	// you can then set the Header here
 	// I think the content-type should be "application/xml" like json...
-	req.Header.Add("Content-Type", "text/xml; charset=utf-8")
+	req.Header.Add("valitor-api-version", "2.0")
+	req.Header.Add("Authorization", "APIKey VPUAT.avI9NMNHxj+X2JJn16ckUwZ+wOUXo8btfSBYvQpzogg=")
+	req.Header.Add("Content-Type", "application/json; charset=utf-8")
 	// now POST it
 	resp, err := client.Do(req)
 	if err != nil {
